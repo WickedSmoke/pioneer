@@ -1,3 +1,9 @@
+options [
+    audio-api: 'faun    "Audio API ('faun 'sdl)"
+    make-dep: true
+]
+
+if make-dep [
 lib %fmt [
     include_from [%contrib/fmt/include %contrib/fmt/include/fmt]
     sources_from %contrib/fmt/src [%format.cc %os.cc]
@@ -42,6 +48,7 @@ lib %support [
         %contrib/PicoDDS/PicoDDS.cpp
         %contrib/profiler/Profiler.cpp
     ]
+]
 ]
 
 pi-default: does [
@@ -111,6 +118,7 @@ ifn exists? %src/buildopts.h [
 lib %pioneer-lib [
     pi-default
     cxxflags "-DIMGUI_DEFINE_MATH_OPERATORS"
+
     include_from [
         %/usr/include/freetype2
         %contrib/fmt/include/fmt
@@ -144,7 +152,6 @@ lib %pioneer-lib [
         %src/pigui
         %src/scenegraph
         %src/ship
-        %src/sound
         %src/terrain
         %src/text
     ]
@@ -152,6 +159,15 @@ lib %pioneer-lib [
     foreach dir src-dirs [
         sources_from dir %.cpp
     ]
+
+    include_from %src/sound
+    sources_from %src/sound [
+        %AmbientSounds.cpp
+        %SoundMusic.cpp
+    ]
+    sources to-block either eq? audio-api 'faun
+        %src/backend/Sound_faun.cpp
+        %src/sound/Sound.cpp   ; backend/Sound_sdl.cpp
 
     linux [
         sources [
@@ -180,11 +196,12 @@ exe %pioneer-kr [
         %pioneer-lua %pioneer-lib %pioneer-lua %pioneer-core
         %fmt %imgui %lua %lz4 %support
     ]
+    libs either eq? audio-api 'faun %faun %vorbisfile
     linux [
-        libs [%assimp %GLEW %SDL2_image %SDL2 %sigc-2.0 %vorbisfile]
+        libs [%assimp %GLEW %SDL2_image %SDL2 %sigc-2.0]
     ]
     win32 [
-        libs [%assimp %GLEW %SDL2_image %SDL2 %sigc-2.0 %vorbisfile %ws2_32]
+        libs [%assimp %GLEW %SDL2_image %SDL2 %sigc-2.0 %ws2_32]
     ]
     sources [%src/main.cpp]
 ]
