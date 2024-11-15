@@ -12,6 +12,7 @@
 #include "Pi.h"
 #include "Player.h"
 #include "utils.h"
+//#include "core/cpuCounter.h"
 
 #include "SDL_audio.h"
 #include "SDL_events.h"
@@ -280,6 +281,7 @@ namespace Sound {
 
 	void PlaySfx(const char *fx, const float volume_left, const float volume_right, const Op op)
 	{
+		//printf("SD PlaySfx %s %f,%f %d\n", fx, volume_left, volume_right, op);
 		Sample* sample = GetSample(fx);
 		if (sample) {
 			PlaySfxSample(sample, volume_left, volume_right, op);
@@ -420,6 +422,9 @@ namespace Sound {
 
 	static void fill_audio(void *udata, Uint8 *dsp_buf, int len)
 	{
+#ifdef CPUCOUNTER_H
+        uint64_t t0 = cpuCounter();
+#endif
 		const int len_in_floats = len >> 1;
 		float *tmpbuf = static_cast<float *>(alloca(sizeof(float) * len_in_floats)); // len is in chars not samples
 		memset(static_cast<void *>(tmpbuf), 0, sizeof(float) * len_in_floats);
@@ -466,6 +471,11 @@ namespace Sound {
 			const float val = m_masterVol * tmpbuf[pos];
 			(reinterpret_cast<Sint16 *>(dsp_buf))[pos] = Sint16(Clamp(val, -32768.0f, 32767.0f));
 		}
+#ifdef CPUCOUNTER_H
+        uint64_t tm = cpuCounter() - t0;
+        printf("CT mix   %9ld samp:%d (%f)\n",
+               tm, len_in_floats, double(tm) / double(len_in_floats));
+#endif
 	}
 
 	void DestroyAllEvents()
@@ -695,6 +705,7 @@ namespace Sound {
 
 	void Event::Play(const char *fx, float volume_left, float volume_right, Op op)
 	{
+        //printf("SD Play %s %f,%f %d\n", fx, volume_left, volume_right, op);
 		Stop();
 		Sample* sample = GetSample(fx);
 		if (sample) {
@@ -761,6 +772,7 @@ namespace Sound {
 
 	bool Event::VolumeAnimate(const float targetVol1, const float targetVol2, const float dv_dt1, const float dv_dt2)
 	{
+		//printf("SD VolumeAnim %x vol;%f,%f dt:%f,%f\n", eid, targetVol1, targetVol2, dv_dt1, dv_dt2);
 		SDL_LockAudioDevice(m_audioDevice);
 		SoundEvent *ev = GetEvent(eid);
 		if (ev) {
@@ -793,9 +805,15 @@ namespace Sound {
 
 	bool Event::FadeOut(float dv_dt, Op op)
 	{
+#ifdef CPUCOUNTER_H
+		uint64_t t0 = cpuCounter();
+#endif
 		bool found = VolumeAnimate(0.0f, 0.0f, dv_dt, dv_dt);
 		if (found)
 			SetOp(op | Sound::OP_STOP_AT_TARGET_VOLUME);
+#ifdef CPUCOUNTER_H
+		printf("CT fout %9ld\n", cpuCounter() - t0);
+#endif
 		return found;
 	}
 
