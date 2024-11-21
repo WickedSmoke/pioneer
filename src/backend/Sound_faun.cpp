@@ -297,7 +297,7 @@ namespace Sound {
 	bool Init(bool /*automaticallyOpenDevice*/)
 	{
 		PROFILE_SCOPED()
-		faun_startup(BUF_COUNT, SRC_COUNT, STREAM_COUNT, 0, "pioneer");
+		faun_startup(BUF_COUNT, SRC_COUNT, STREAM_COUNT, 1, "pioneer");
 
 		// load all the wretched effects
 		Pi::GetApp()->GetAsyncStartupQueue()->Order(new LoadSoundJob("sounds", false));
@@ -346,7 +346,7 @@ namespace Sound {
 	void Event::PlayMusic(const char *fx, float volume, float fadeDelta, bool repeat, Event* fadeOut)
 	{
 		//printf("KR PlayMusic %s %f %f %d\n", fx, volume, fadeDelta, repeat);
-
+#if 1
 		if (fadeDelta && musicFadeDelta != fadeDelta) {
 			musicFadeDelta = fadeDelta;
 			faun_setParameter(STREAM0, 2, FAUN_FADE_PERIOD, 1.0f/fadeDelta);
@@ -373,6 +373,46 @@ namespace Sound {
 			wavstream[si].sample = sample;
 			wavstream[si].identifier = eid;
 		}
+#else
+		static uint8_t crossfade[] = {
+			FO_SOURCE, STREAM0, FO_FADE_OUT, FO_SOURCE, STREAM0+1,
+			FO_SET_FADE, 10, FO_SET_VOL, 255,
+			FO_START_STREAM, FAUN_PLAY_ONCE | FAUN_PLAY_FADE_IN,
+			FO_END
+		};
+
+		Sample* sample = GetSample(fx);
+		if (sample) {
+			const int si = STREAM0 + nextMusicStream;
+			nextMusicStream ^= 1;
+
+			char dpath[80];
+			sprintf(dpath, "data/%s.ogg", fx);
+			eid = faun_playStream(si, dpath, 0, 0, 0);
+
+			wavstream[si].sample = eid ? sample : 0;
+			wavstream[si].identifier = eid;
+
+			if (eid) {
+				uint8_t* prog = crossfade;
+				assert(prog[9] == FO_START_STREAM);
+
+				prog[1] = STREAM0 + nextMusicStream;
+				prog[4] = si;
+				prog[6] = uint8_t(10.0f / fadeDelta);
+				prog[8] = uint8_t(volume * 255.0f);
+				prog[10] = repeat ? FAUN_PLAY_LOOP | FAUN_PLAY_FADE_IN
+								  : FAUN_PLAY_ONCE | FAUN_PLAY_FADE_IN;
+
+				int progLen = sizeof(crossfade);
+				if (fadeOut == nullptr || fadeOut->eid == 0) {
+					prog += 3;
+					progLen -= 3;
+				}
+				faun_program(0, prog, progLen);
+			}
+		}
+#endif
 	}
 
 	bool Event::Stop()
