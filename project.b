@@ -3,6 +3,8 @@ options [
     make-dep: true
 ]
 
+linux [default [cxxflags "-std=c++17"]]
+
 if make-dep [
 lib %fmt [
     include_from [%contrib/fmt/include %contrib/fmt/include/fmt]
@@ -28,7 +30,6 @@ lib %lua [
 ]
 
 lib %lz4 [
-    cflags "-DXXH_NAMESPACE=LZ4_"
     include_from %contrib/lz4
     sources_from %contrib/lz4 %.c
 ]
@@ -52,6 +53,7 @@ lib %support [
 ]
 
 pi-default: does [
+    cxxflags "-DIMGUI_DEFINE_MATH_OPERATORS"
     include_from [
         %src/core
         %src/lua
@@ -117,7 +119,6 @@ ifn exists? %src/buildopts.h [
 
 lib %pioneer-lib [
     pi-default
-    cxxflags "-DIMGUI_DEFINE_MATH_OPERATORS"
 
     include_from [
         %/usr/include/freetype2
